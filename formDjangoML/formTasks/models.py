@@ -7,8 +7,7 @@ class TaskForms(models.Model):
     genero = models.CharField(max_length=10)
     peso = models.FloatField()
     talla = models.FloatField()
-    Distrito = models.CharField(max_length=100)
-    
+    distrito = models.CharField(max_length=100)
     def __str__(self):
         return self.name
 
