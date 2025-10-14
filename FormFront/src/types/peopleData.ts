@@ -6,4 +6,6 @@ export type people = {
   talla: number;
   distrito: string;
   email: string;
+  cred: number;
+  suplementacion: number;
 };

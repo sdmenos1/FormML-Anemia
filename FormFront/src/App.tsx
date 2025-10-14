@@ -190,7 +190,44 @@ function App() {
               )}
             </div>
           </div>
+          {/* Agregar después del campo distrito */}
+          <div className="flex flex-col">
+            <label
+              htmlFor="cred"
+              className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2"
+            >
+              <Users className="w-4 h-4 text-blue-600" />
+              Control de Crecimiento
+            </label>
+            <select
+              id="cred"
+              className="px-4 py-2.5 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-slate-50"
+              {...register("cred", { required: true })}
+            >
+              <option value="">Seleccionar</option>
+              <option value="1">Sí</option>
+              <option value="0">No</option>
+            </select>
+          </div>
 
+          <div className="flex flex-col">
+            <label
+              htmlFor="suplementacion"
+              className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2"
+            >
+              <Stethoscope className="w-4 h-4 text-blue-600" />
+              Suplementación
+            </label>
+            <select
+              id="suplementacion"
+              className="px-4 py-2.5 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-slate-50"
+              {...register("suplementacion", { required: true })}
+            >
+              <option value="">Seleccionar</option>
+              <option value="1">Sí</option>
+              <option value="0">No</option>
+            </select>
+          </div>
           <div className="mt-8 flex gap-4">
             <button
               type="submit"

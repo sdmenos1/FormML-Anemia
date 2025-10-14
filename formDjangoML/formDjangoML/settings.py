@@ -118,7 +118,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
-
+RESEND_API_KEY = 're_btZ8AV8Y_7wa6o2EiVz48so3d6J9fUyS1'  
+RESEND_FROM_EMAIL = 'Acme <onboarding@resend.dev>'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 CORS_ALLOWED_ORIGINS = [

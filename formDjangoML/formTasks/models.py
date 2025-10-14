@@ -8,6 +8,8 @@ class TaskForms(models.Model):
     peso = models.FloatField()
     talla = models.FloatField()
     distrito = models.CharField(max_length=100)
+    cred = models.IntegerField()
+    suplementacion = models.IntegerField()
     def __str__(self):
         return self.name
 
