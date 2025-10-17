@@ -13,3 +13,6 @@ matplotlib
 numpy
 pandas
 scikit-learn
+djangorestframework
+drf-spectacular
+resend
