@@ -14,19 +14,14 @@ class TaskViewSet(viewsets.ModelViewSet):
     queryset = TaskForms.objects.all()
     serializer_class = TaskSerializer
     
-    # Variables de clase para el modelo (se cargan una sola vez)
     _model = None
     _le_distrito = None
     _feature_names = None
     
     @classmethod
     def get_modelo(cls):
-        """Carga el modelo solo una vez (singleton pattern)"""
         if cls._model is None:
             try:
-                # trainModelRandomForest está FUERA de formDjangoML
-                # settings.BASE_DIR apunta a formDjangoML/
-                # Necesitamos subir un nivel: formDjangoML/../trainModelRandomForest/
                 model_path = os.path.join(settings.BASE_DIR, '..', 'trainModelRandomForest')
                 # Normalizar la ruta
                 model_path = os.path.normpath(model_path)
@@ -35,7 +30,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                 encoder_file = os.path.join(model_path, 'distrito_label_encoder.pkl')
                 features_file = os.path.join(model_path, 'feature_names.pkl')
                 
-                # Verificar que los archivos existen
                 if not os.path.exists(modelo_file):
                     raise FileNotFoundError(f"No se encontró: {modelo_file}")
                 if not os.path.exists(encoder_file):
@@ -258,18 +252,13 @@ class TaskViewSet(viewsets.ModelViewSet):
             return False
     
     def create(self, request, *args, **kwargs):
-        """
-        Override del método create para guardar, predecir y enviar email
-        POST http://127.0.0.1:8000/tasks/data/tasks/
-        """
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         
-        # Obtener la instancia creada
         instance = serializer.instance
         
-        # Intentar hacer predicción automática si el modelo está disponible
         modelo, le_distrito, feature_names = self.get_modelo()
         
         response_data = serializer.data
@@ -281,7 +270,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                 )
                 response_data['prediccion'] = prediccion_result
                 
-                # Enviar email con los resultados
                 email_enviado = self._enviar_email_resultados(
                     email_destino=instance.email,
                     nombre=instance.name,
@@ -300,13 +288,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
     
     def _realizar_prediccion(self, instance, modelo, le_distrito, feature_names):
-        """Método interno para realizar predicción"""
         try:
-            # Mapear tus campos reales a los que necesita el modelo
-            # Tu modelo tiene: email, name, age, genero, peso, talla, distrito, cred, suplementacion
-            # El modelo ML necesita: Sexo, Edad (meses), Peso, Talla, Cred, Suplementacion, DistritoREN, AlturaREN
-            
-            # Convertir género a formato del modelo (F/M)
+        
             genero = str(instance.genero).upper()
             if genero in ['MASCULINO', 'M', 'MALE']:
                 sexo_encoded = 1
@@ -315,10 +298,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             else:
                 sexo_encoded = 0  # Por defecto F
             
-            # Convertir edad en años a meses
             edad_meses = float(instance.age) * 12
             
-            # Obtener cred y suplementacion del modelo
             cred = int(instance.cred)
             suplementacion = int(instance.suplementacion)
             altura_ren = getattr(instance, 'altura_ren', 0)  # Este puede quedar por defecto
@@ -341,17 +322,14 @@ class TaskViewSet(viewsets.ModelViewSet):
             entrada = pd.DataFrame([datos])
             entrada = entrada[feature_names]
             
-            # Transformar distrito
             try:
                 distrito_str = str(instance.distrito).upper()
                 entrada.loc[0, 'DistritoREN'] = le_distrito.transform([distrito_str])[0]
             except:
                 entrada.loc[0, 'DistritoREN'] = 0
             
-            # Predecir
             prediccion = modelo.predict(entrada)[0]
             
-            # Determinar si tiene anemia (cualquier clase diferente de 0)
             tiene_anemia = prediccion != 0
             
             interpretaciones = {
@@ -366,7 +344,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                 "resultado": interpretaciones.get(prediccion, "Desconocido")
             }
         except Exception as e:
-            # Más información del error para debug
             import traceback
             return {
                 "error": f"Error en predicción: {str(e)}",
@@ -375,22 +352,6 @@ class TaskViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def predecir_anemia(self, request):
-        """
-        Predicción con datos personalizados
-        POST http://127.0.0.1:8000/tasks/data/tasks/predecir_anemia/
-        
-        Body:
-        {
-            "sexo": "F",
-            "edad_meses": 32,
-            "peso": 13.4,
-            "talla": 89.0,
-            "cred": 1,
-            "suplementacion": 1,
-            "distrito": "SAN JUAN DE MIRAFLORES",
-            "altura_ren": 150
-        }
-        """
         modelo, le_distrito, feature_names = self.get_modelo()
         
         if modelo is None:
@@ -400,7 +361,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            # Obtener y validar datos
             sexo = request.data.get('sexo', '').upper()
             edad_meses = float(request.data.get('edad_meses', 0))
             peso = float(request.data.get('peso', 0))
@@ -423,7 +383,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Preparar datos
             datos = {
                 'Sexo': 0 if sexo == 'F' else 1,
                 'Peso': peso,
@@ -442,7 +401,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             entrada = pd.DataFrame([datos])
             entrada = entrada[feature_names]
             
-            # Transformar distrito
             distrito_warning = None
             try:
                 entrada.loc[0, 'DistritoREN'] = le_distrito.transform([distrito])[0]
@@ -481,10 +439,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def predecir_desde_registro(self, request, pk=None):
-        """
-        Predicción desde registro existente
-        POST http://127.0.0.1:8000/tasks/data/tasks/{id}/predecir_desde_registro/
-        """
+
         modelo, le_distrito, feature_names = self.get_modelo()
         
         if modelo is None:
@@ -505,10 +460,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def info_modelo(self, request):
-        """
-        Información del modelo
-        GET http://127.0.0.1:8000/tasks/data/tasks/info_modelo/
-        """
+
         modelo, le_distrito, feature_names = self.get_modelo()
         
         if modelo is None:
@@ -534,11 +486,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     def _realizar_prediccion(self, instance, modelo, le_distrito, feature_names):
         """Método interno para realizar predicción"""
         try:
-            # Mapear tus campos reales a los que necesita el modelo
-            # Tu modelo tiene: email, name, age, genero, peso, talla, distrito, cred, suplementacion
-            # El modelo ML necesita: Sexo, Edad (meses), Peso, Talla, Cred, Suplementacion, DistritoREN, AlturaREN
-            
-            # Convertir género a formato del modelo (F/M)
+
             genero = str(instance.genero).upper()
             if genero in ['MASCULINO', 'M', 'MALE']:
                 sexo_encoded = 1
@@ -547,10 +495,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             else:
                 sexo_encoded = 0  # Por defecto F
             
-            # Convertir edad en años a meses
             edad_meses = float(instance.age) * 12
             
-            # Obtener cred y suplementacion del modelo
             cred = int(instance.cred)
             suplementacion = int(instance.suplementacion)
             altura_ren = getattr(instance, 'altura_ren', 0)  # Este puede quedar por defecto
@@ -598,167 +544,8 @@ class TaskViewSet(viewsets.ModelViewSet):
                 "resultado": interpretaciones.get(prediccion, "Desconocido")
             }
         except Exception as e:
-            # Más información del error para debug
             import traceback
             return {
                 "error": f"Error en predicción: {str(e)}",
                 "detalles": traceback.format_exc()
             }
-    
-    @action(detail=False, methods=['post'])
-    def predecir_anemia(self, request):
-        """
-        Predicción con datos personalizados
-        POST http://127.0.0.1:8000/tasks/data/tasks/predecir_anemia/
-        
-        Body:
-        {
-            "sexo": "F",
-            "edad_meses": 32,
-            "peso": 13.4,
-            "talla": 89.0,
-            "cred": 1,
-            "suplementacion": 1,
-            "distrito": "SAN JUAN DE MIRAFLORES",
-            "altura_ren": 150
-        }
-        """
-        modelo, le_distrito, feature_names = self.get_modelo()
-        
-        if modelo is None:
-            return Response(
-                {"error": "Modelo no disponible"},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE
-            )
-        
-        try:
-            # Obtener y validar datos
-            sexo = request.data.get('sexo', '').upper()
-            edad_meses = float(request.data.get('edad_meses', 0))
-            peso = float(request.data.get('peso', 0))
-            talla = float(request.data.get('talla', 0))
-            cred = int(request.data.get('cred', 0))
-            suplementacion = int(request.data.get('suplementacion', 0))
-            distrito = request.data.get('distrito', '').upper()
-            altura_ren = float(request.data.get('altura_ren', 0))
-            
-            # Validaciones
-            if sexo not in ['F', 'M']:
-                return Response(
-                    {"error": "Sexo debe ser 'F' o 'M'"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            if any(v <= 0 for v in [edad_meses, peso, talla]):
-                return Response(
-                    {"error": "Edad, peso y talla deben ser positivos"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Preparar datos
-            datos = {
-                'Sexo': 0 if sexo == 'F' else 1,
-                'Peso': peso,
-                'Talla': talla,
-                'Cred': cred,
-                'Suplementacion': suplementacion,
-                'DistritoREN': 0,
-                'AlturaREN': altura_ren,
-                'Edad': edad_meses,
-                'IMC': peso / ((talla/100) ** 2),
-                'Peso_Talla_Ratio': peso / talla,
-                'EdadMeses': edad_meses,
-                'EdadAnios': edad_meses / 12
-            }
-            
-            entrada = pd.DataFrame([datos])
-            entrada = entrada[feature_names]
-            
-            # Transformar distrito
-            distrito_warning = None
-            try:
-                entrada.loc[0, 'DistritoREN'] = le_distrito.transform([distrito])[0]
-            except:
-                entrada.loc[0, 'DistritoREN'] = 0
-                distrito_warning = f"Distrito '{distrito}' no encontrado"
-            
-            # Predecir
-            prediccion = modelo.predict(entrada)[0]
-            
-            # Determinar si tiene anemia
-            tiene_anemia = prediccion != 0
-            
-            interpretaciones = {
-                0: "Sin anemia",
-                1: "Anemia leve",
-                2: "Anemia moderada",
-                3: "Anemia severa"
-            }
-            
-            respuesta = {
-                "tiene_anemia": tiene_anemia,
-                "resultado": interpretaciones.get(prediccion, "Desconocido")
-            }
-            
-            if distrito_warning:
-                respuesta["advertencias"] = [distrito_warning]
-            
-            return Response(respuesta, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            return Response(
-                {"error": f"Error: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
-    @action(detail=True, methods=['post'])
-    def predecir_desde_registro(self, request, pk=None):
-        """
-        Predicción desde registro existente
-        POST http://127.0.0.1:8000/tasks/data/tasks/{id}/predecir_desde_registro/
-        """
-        modelo, le_distrito, feature_names = self.get_modelo()
-        
-        if modelo is None:
-            return Response(
-                {"error": "Modelo no disponible"},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE
-            )
-        
-        try:
-            instance = self.get_object()
-            resultado = self._realizar_prediccion(instance, modelo, le_distrito, feature_names)
-            return Response(resultado, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response(
-                {"error": f"Error: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-    
-    @action(detail=False, methods=['get'])
-    def info_modelo(self, request):
-        """
-        Información del modelo
-        GET http://127.0.0.1:8000/tasks/data/tasks/info_modelo/
-        """
-        modelo, le_distrito, feature_names = self.get_modelo()
-        
-        if modelo is None:
-            return Response(
-                {"error": "Modelo no disponible"},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE
-            )
-        
-        return Response({
-            "modelo_cargado": True,
-            "tipo": type(modelo).__name__,
-            "numero_caracteristicas": len(feature_names),
-            "caracteristicas": feature_names,
-            "clases": [int(c) for c in modelo.classes_],
-            "interpretaciones": {
-                "0": "Sin anemia",
-                "1": "Anemia leve",
-                "2": "Anemia moderada",
-                "3": "Anemia severa"
-            }
-        }, status=status.HTTP_200_OK)
