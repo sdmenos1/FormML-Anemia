@@ -1,0 +1,16 @@
+absl-py
+aiohttp
+altair
+anaconda-client
+astroid
+django
+django-cors-headers
+attrs
+black
+bokeh
+Flask
+matplotlib
+numpy
+pandas
+scikit-learn
+tensorflow
